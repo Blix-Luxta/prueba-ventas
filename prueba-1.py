@@ -5,7 +5,7 @@ import openpyxl
 df = pd.read_excel('Reporte Operadores s2s - Mera.xlsx', header=6, usecols="B:I")
 
 df.columns = ['PCRC', 'OPERADOR', 'Cod. Agente', 'Ll. ACD', 'LOGUEO', 'Q. Ventas', 'vma', 'Supervisor']
-
+df['Ll. ACD'] = pd.to_numeric(df['Ll. ACD'], errors='coerce')
 df_filtrado = df[df['Ll. ACD'] > 0]
 
 df_filtrado = df_filtrado.dropna()
