@@ -1,4 +1,5 @@
 # Ignorar entornos virtuales
+my_venv/
 venv/
 ENV/
 env/
