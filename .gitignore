@@ -1,0 +1,25 @@
+# Ignorar entornos virtuales
+venv/
+ENV/
+env/
+.venv/
+
+# Ignorar archivos del sistema
+*.DS_Store
+*.log
+
+# Ignorar archivos de compilación de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignorar configuraciones del editor
+.vscode/
+.idea/
+
+# Ignorar archivos creados por sistemas operativos
+*.swp
+*~
+
+# Ignorar archivos de configuración de Jupyter
+.ipynb_checkpoints/
