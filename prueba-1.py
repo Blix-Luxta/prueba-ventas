@@ -39,7 +39,6 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
         
         # Establecer nombres de columnas
         df_origen.columns = ['PCRC', 'OPERADOR', 'Cod. Agente', 'Ll. ACD', 'LOGUEO', 'Q. Ventas', 'vma', 'Supervisor']
-        df_origen['Ll. ACD'] = pd.to_numeric(df_origen['Ll. ACD'], errors='coerce')
 
         # Aplicar filtros
         df_filtrado = df_origen[df_origen['Ll. ACD'] != 0]
@@ -62,7 +61,7 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
         if "Operadores S2S" in wb_destino.sheetnames:
             del wb_destino["Operadores S2S"]
         hoja_destino = wb_destino.create_sheet("Operadores S2S")
-        
+
         # Copiar dimensiones de columnas
         for col in range(1, min(9, hoja_origen.max_column + 1)):
             col_letter = get_column_letter(col)
@@ -72,15 +71,26 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
         # Copiar encabezados con formato
         for col, header in enumerate(df_origen.columns, 1):
             celda_destino = hoja_destino.cell(row=1, column=col, value=header)
-            celda_origen = hoja_origen.cell(row=7, column=col+1)  # Fila 7 (después de skiprows=6), columna +1 por el offset
+            celda_origen = hoja_origen.cell(row=7, column=col + 1)  # Fila 7 (después de skiprows=6), columna +1 por el offset
             copiar_formato(celda_origen, celda_destino)
+
+        # Lista para almacenar el ancho máximo de las columnas
+        max_widths = [0] * len(df_origen.columns)
 
         # Copiar datos con formato
         for i, row in enumerate(df_filtrado.values, 2):  # Empezamos en 2 porque la fila 1 son los encabezados
             for j, value in enumerate(row, 1):
                 celda_destino = hoja_destino.cell(row=i, column=j, value=value)
-                celda_origen = hoja_origen.cell(row=i+6, column=j+1)  # +6 por skiprows, +1 por offset de columna
+                celda_origen = hoja_origen.cell(row=i + 6, column=j + 1)  # +6 por skiprows, +1 por offset de columna
                 copiar_formato(celda_origen, celda_destino)
+
+                # Calcular el ancho máximo
+                max_widths[j - 1] = max(max_widths[j - 1], len(str(value)))
+
+        # Ajustar el ancho de las columnas en función del contenido
+        for j, width in enumerate(max_widths, 1):
+            col_letter = get_column_letter(j)
+            hoja_destino.column_dimensions[col_letter].width = width + 5 # Añade un margen
 
         # Renombrar la hoja y limpiar
         hoja_destino.title = "Envío"
@@ -93,7 +103,7 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
         wb_origen.close()
         wb_destino.close()
         print("Éxito", f"Operación completada. Archivo guardado en '{archivo_destino}'.")
-        
+
     except Exception as e:
         print("Error", f"Ocurrió un error: {e}")
         import traceback
