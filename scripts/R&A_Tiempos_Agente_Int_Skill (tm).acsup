@@ -4,26 +4,27 @@ Public Sub Main()
 
 '## cvs_cmd_begin
 '## ID = 2001
-'## Description = "Reporte: Historical: Designer: AM_Rep_Agente_Skill_Intervalo: Mostrar"
-'## Parameters.Add "Reporte: Historical: Designer: AM_Rep_Agente_Skill_Intervalo: Mostrar","_Desc"
+'## Description = "Reporte: Histórico: Diseñador: AM_Rep_Agente_Skill_Intervalo: Mostrar"
+'## Parameters.Add "Reporte: Histórico: Diseñador: AM_Rep_Agente_Skill_Intervalo: Mostrar","_Desc"
 '## Parameters.Add "Reports","_Catalog"
-'## Parameters.Add "3","_Action"
+'## Parameters.Add "4","_Action"
 '## Parameters.Add "0","_Quit"
 '## Parameters.Add "Historical\Designer\AM_Rep_Agente_Skill_Intervalo","_Report"
 '## Parameters.Add "1","_ACD"
-'## Parameters.Add "1050","_Top"
-'## Parameters.Add "6345","_Left"
-'## Parameters.Add "11745","_Width"
-'## Parameters.Add "13575","_Height"
+'## Parameters.Add "1410","_Top"
+'## Parameters.Add "-45","_Left"
+'## Parameters.Add "23775","_Width"
+'## Parameters.Add "12510","_Height"
 '## Parameters.Add "default","_TimeZone"
 '## Parameters.Add "El reporte Historical\Designer\AM_Rep_Agente_Skill_Intervalo no fue encontrado en la ACD 1.","_ReportNotFound"
 '## Parameters.Add "*","_BeginProperties"
+'## Parameters.Add "924;925","Skills"
 '## Parameters.Add "0","Fechas"
 '## Parameters.Add "06:00-13:30","Intervalo"
-'## Parameters.Add "924;925","Splits/skills"
 '## Parameters.Add "*","_EndProperties"
 '## Parameters.Add "*","_BeginViews"
 '## Parameters.Add "*","_EndViews"
+
    On Error Resume Next
 
    cvsSrv.Reports.ACD = 1
@@ -42,24 +43,26 @@ Public Sub Main()
 	   b = cvsSrv.Reports.CreateReport(Info,Rep)
 	   If b Then
 	
-	      Rep.Window.Top = 1050
-	      Rep.Window.Left = 6345
-	      Rep.Window.Width = 11745
-	      Rep.Window.Height = 13575
+	      Rep.Window.Top = 1410
+	      Rep.Window.Left = -45
+	      Rep.Window.Width = 23775
+	      Rep.Window.Height = 12510        
 	
 
                         Rep.TimeZone = "default"
 
+
+	
+	      Rep.SetProperty "Skills","924;925"
+	
 	      Rep.SetProperty "Fechas","0"
 	
 	      Rep.SetProperty "Intervalo","06:00-13:30"
 	
-	      Rep.SetProperty "Splits/skills","924;925"
-	
 	
 	
 
-	      b = Rep.ExportData("\\10.2.0.161\Command\CampaÃ±as\Visa\GESTIÃ“N CSV\SKILL\Nahu\pruebas_python\prueba 1\scripts\AM_Rep_Agente_Skill_Intervalo (TM).txt", 9, 0, True, True, True)
+	      b = Rep.ExportData("\\narnia\Command\Campañas\Visa\GESTIÓN CSV\SKILL\Nahu\pruebas_python\prueba 1\scripts\AM_Rep_Agente_Skill_Intervalo (tm).txt", 9, 0, True, True, True)
 
 	
 
