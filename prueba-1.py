@@ -4,6 +4,8 @@ from openpyxl.utils import get_column_letter
 from copy import copy
 import os
 import sys
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.styles.colors import Color
 
 def copiar_formato(celda_origen, celda_destino):
     """Copia el formato de una celda a otra usando el método correcto de openpyxl"""
@@ -14,6 +16,56 @@ def copiar_formato(celda_origen, celda_destino):
         celda_destino.number_format = celda_origen.number_format
         celda_destino.protection = copy(celda_origen.protection)
         celda_destino.alignment = copy(celda_origen.alignment)
+
+def aplicar_formato_titulo(hoja):
+    """Aplica el formato especificado al título"""
+    # Combinar celdas B1:G4
+    hoja.merge_cells('B1:G4')
+    
+    # Obtener la celda combinada
+    celda_titulo = hoja['B1']
+    
+    # Establecer el texto
+    celda_titulo.value = "OPERADORES S2S - CSV MERA"
+    
+    # Establecer la fuente
+    celda_titulo.font = Font(
+        name='Calibri',
+        size=22,
+        bold=True,
+        color='FFFFFF'  # Color blanco
+    )
+    
+    # Establecer la alineación
+    celda_titulo.alignment = Alignment(
+        horizontal='center',
+        vertical='center'
+    )
+    
+    # Establecer el color de fondo
+    celda_titulo.fill = PatternFill(
+        start_color='44546A',
+        end_color='44546A',
+        fill_type='solid'
+    )
+
+def aplicar_formato_encabezados(hoja, columnas):
+    """Aplica el formato especificado a los encabezados"""
+    for col, header in enumerate(columnas, 1):
+        celda = hoja.cell(row=6, column=col, value=header)
+        celda.font = Font(
+            bold=True,
+            color='FFFFFF'  # Color blanco
+        )
+        celda.fill = PatternFill(
+            start_color='44546A',
+            end_color='44546A',
+            fill_type='solid'
+        )
+        celda.alignment = Alignment(
+            horizontal='center',
+            vertical='center'
+        )
 
 def operadores_mera_s2s(archivo_origen, archivo_destino):
     try:
@@ -38,7 +90,8 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
                                 usecols=range(1, 9))
         
         # Establecer nombres de columnas
-        df_origen.columns = ['PCRC', 'OPERADOR', 'Cod. Agente', 'Ll. ACD', 'LOGUEO', 'Q. Ventas', 'vma', 'Supervisor']
+        columnas = ['PCRC', 'OPERADOR', 'Cod. Agente', 'Ll. ACD', 'LOGUEO', 'Q. Ventas', 'vma', 'Supervisor']
+        df_origen.columns = columnas
 
         # Aplicar filtros
         df_filtrado = df_origen[df_origen['Ll. ACD'] != 0]
@@ -62,26 +115,26 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
             del wb_destino["Operadores S2S"]
         hoja_destino = wb_destino.create_sheet("Operadores S2S")
 
+        # Aplicar formato al título
+        aplicar_formato_titulo(hoja_destino)
+
         # Copiar dimensiones de columnas
         for col in range(1, min(9, hoja_origen.max_column + 1)):
             col_letter = get_column_letter(col)
             if col_letter in hoja_origen.column_dimensions:
                 hoja_destino.column_dimensions[col_letter].width = hoja_origen.column_dimensions[col_letter].width
 
-        # Copiar encabezados con formato
-        for col, header in enumerate(df_origen.columns, 1):
-            celda_destino = hoja_destino.cell(row=1, column=col, value=header)
-            celda_origen = hoja_origen.cell(row=7, column=col + 1)  # Fila 7 (después de skiprows=6), columna +1 por el offset
-            copiar_formato(celda_origen, celda_destino)
+        # Aplicar formato a los encabezados en la fila 6
+        aplicar_formato_encabezados(hoja_destino, columnas)
 
         # Lista para almacenar el ancho máximo de las columnas
-        max_widths = [0] * len(df_origen.columns)
+        max_widths = [0] * len(columnas)
 
-        # Copiar datos con formato
-        for i, row in enumerate(df_filtrado.values, 2):  # Empezamos en 2 porque la fila 1 son los encabezados
+        # Copiar datos con formato empezando desde la fila 7
+        for i, row in enumerate(df_filtrado.values, 7):
             for j, value in enumerate(row, 1):
                 celda_destino = hoja_destino.cell(row=i, column=j, value=value)
-                celda_origen = hoja_origen.cell(row=i + 6, column=j + 1)  # +6 por skiprows, +1 por offset de columna
+                celda_origen = hoja_origen.cell(row=i + 6, column=j + 1)
                 copiar_formato(celda_origen, celda_destino)
 
                 # Calcular el ancho máximo
@@ -90,11 +143,13 @@ def operadores_mera_s2s(archivo_origen, archivo_destino):
         # Ajustar el ancho de las columnas en función del contenido
         for j, width in enumerate(max_widths, 1):
             col_letter = get_column_letter(j)
-            hoja_destino.column_dimensions[col_letter].width = width + 5 # Añade un margen
+            hoja_destino.column_dimensions[col_letter].width = width + 5  # Añade un margen
 
-        # Renombrar la hoja y limpiar
+        # Eliminar la fila 7 y ajustar todas las filas siguientes hacia arriba
+        hoja_destino.delete_rows(7)
+
+        # Renombrar la hoja
         hoja_destino.title = "Envío"
-        hoja_destino.delete_rows(1)
         if "Eliminar" in wb_destino.sheetnames:
             del wb_destino["Eliminar"]
 
