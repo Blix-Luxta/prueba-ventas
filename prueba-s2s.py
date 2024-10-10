@@ -1,91 +1,105 @@
-import pandas as pd
-import openpyxl
+from openpyxl import load_workbook
 import os
 import sys
-import tkinter as tk
-from tkinter import messagebox
 
-def operadores_mera_s2s(archivo_origen, archivo_destino):
-    try:
-        # Verificar si los archivos existen
-        if not os.path.exists(archivo_origen):
-            messagebox.showerror("Error", f"El archivo origen '{archivo_origen}' no existe.")
-            return
-        if not os.path.exists(archivo_destino):
-            messagebox.showinfo("Información", f"El archivo destino '{archivo_destino}' no existe. Se creará uno vacío.")
-            # Crear un libro de Excel vacío si no existe
-            wb = openpyxl.Workbook()
-            wb.save(archivo_destino)
+def procesar_excel(ruta_excel, ruta_texto):
+    # Cargar el libro de Excel
+    wb = load_workbook(ruta_excel, keep_vba=True)
+    
+    # Acceder a la hoja "Base Avaya"
+    hoja_base = wb["Base Avaya"]
+    
+    # Determinar la última fila con datos en la base actual
+    ultima_fila = hoja_base.max_row
+    
+    # Guardar las fórmulas originales
+    formulas_originales = {}
+    for col in range(30, 34):  # AD hasta AG
+        celda = hoja_base.cell(row=2, column=col)
+        if celda.value and isinstance(celda.value, str) and celda.value.startswith('='):
+            formulas_originales[col] = celda.value
+    
+    # Borrar contenido desde B2 hasta AC[última_fila]
+    print("Borrando contenido existente...")
+    for fila in range(2, ultima_fila + 1):
+        for col in range(1, 29):  # A hasta AC (columna 29)
+            hoja_base.cell(row=fila, column=col).value = None
+    
+    # Leer el archivo de texto
+    print("Leyendo archivo de texto...")
+    with open(ruta_texto, 'r', encoding='cp1252') as file:
+        datos = [linea.strip().split('\t') for linea in file]
+    
+    # Pegar los nuevos datos
+    print(f"Pegando {len(datos)} filas de datos...")
+    for i, fila in enumerate(datos):
+        for j, valor in enumerate(fila):
+            hoja_base.cell(row=i+1, column=j+1).value = valor
+    
+    # Extender las fórmulas (AD:AG)
+    print("Extendiendo fórmulas...")
+    nueva_ultima_fila = len(datos) + 1
+    for col, formula_original in formulas_originales.items():
+        for fila in range(2, nueva_ultima_fila + 1):
+            nueva_formula = ajustar_formula(formula_original, 2, fila)
+            hoja_base.cell(row=fila, column=col).value = nueva_formula
+            
+    hoja_base.delete_rows(2,2)
+    
+    # Acceder a la hoja "Operadores S2S"
+    hoja_operadores = wb["Operadores S2S"]
+    
+    # Para tablas dinámicas, simplemente guardamos el archivo
+    # Excel actualizará las tablas dinámicas automáticamente al abrirlo
+    wb.save(ruta_excel)
+    print("Preparando actualización de tabla dinámica...")
+    
+    # Verificar y ajustar fórmulas junto a la tabla dinámica
+    print("Ajustando fórmulas adicionales...")
+    filas_tabla = contar_filas_tabla_dinamica(hoja_operadores)
+    ajustar_formulas_adicionales(hoja_operadores, filas_tabla)
+    
+    # Guardar cambios
+    print("Guardando cambios...")
+    wb.save(ruta_excel)
+    print("Proceso completado exitosamente")
+    print("NOTA: Para ver la tabla dinámica actualizada, necesitarás abrir el archivo en Excel.")
 
-        # Cargar el archivo de origen (CSV MERA) usando pandas
-        hoja_origen = 'Operadores S2S'
-        df_origen = pd.read_excel(archivo_origen, sheet_name=hoja_origen, engine='openpyxl')
+def ajustar_formula(formula, fila_orig, fila_nueva):
+    """Ajusta la referencia de fila en una fórmula"""
+    return formula.replace(str(fila_orig), str(fila_nueva))
 
-        # Filtrar los datos
-        # 1. Excluir filas con cualquier NaN (equivalente a #N/D)
-        df_filtrado = df_origen.dropna()
+def contar_filas_tabla_dinamica(hoja):
+    """Cuenta las filas de la tabla dinámica"""
+    fila = 8
+    while hoja.cell(row=fila, column=2).value is not None:
+        fila += 1
+    return fila - 8
 
-        # 2. Excluir filas donde 'Ll. ACD' == 0
-        if 'Ll. ACD' in df_filtrado.columns:
-            df_filtrado = df_filtrado[df_filtrado['Ll. ACD'] != 0]
-        else:
-            messagebox.showerror("Error", "La columna 'Ll. ACD' no se encuentra en los datos.")
-            return
-
-        # 3. Excluir filas que contienen "(en blanco)" en cualquier celda
-        df_filtrado = df_filtrado[~df_filtrado.apply(lambda row: row.astype(str).str.contains(r'\(en blanco\)', case=False).any(), axis=1)]
-
-        # Cargar el archivo destino (Mera) usando openpyxl
-        wb_destino = openpyxl.load_workbook(archivo_destino)
-        
-        # Renombrar la hoja 'Envío' a 'Eliminar' si existe
-        if "Envío" in wb_destino.sheetnames:
-            hoja_envio = wb_destino["Envío"]
-            hoja_envio.title = "Eliminar"
-            print("Hoja 'Envío' renombrada a 'Eliminar'.")
-        else:
-            print("La hoja 'Envío' no existe en el archivo destino. Se procederá a crear una nueva hoja 'Envío'.")
-
-        # Escribir los datos filtrados en una nueva hoja llamada 'Operadores S2S' (se reemplazará si existe)
-        with pd.ExcelWriter(archivo_destino, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-            df_filtrado.to_excel(writer, sheet_name="Operadores S2S", index=False)
-            print("Datos filtrados copiados a la hoja 'Operadores S2S'.")
-
-        # Renombrar la hoja 'Operadores S2S' a 'Envío'
-        wb_destino = openpyxl.load_workbook(archivo_destino)
-        if "Operadores S2S" in wb_destino.sheetnames:
-            hoja_nueva = wb_destino["Operadores S2S"]
-            hoja_nueva.title = "Envío"
-            print("Hoja 'Operadores S2S' renombrada a 'Envío'.")
-        else:
-            print("La hoja 'Operadores S2S' no se encontró después de la escritura.")
-
-        # Eliminar la hoja 'Eliminar' si existe
-        if "Eliminar" in wb_destino.sheetnames:
-            del wb_destino["Eliminar"]
-            print("Hoja 'Eliminar' eliminada.")
-        else:
-            print("La hoja 'Eliminar' no existe y no se puede eliminar.")
-
-        # Guardar y cerrar el archivo destino
-        wb_destino.save(archivo_destino)
-        wb_destino.close()
-        messagebox.showinfo("Éxito", f"Operación completada. Archivo guardado en '{archivo_destino}'.")
-
-    except Exception as e:
-        messagebox.showerror("Error", f"Ocurrió un error: {e}")
-
-def main():
-    # Inicializar Tkinter
-    root = tk.Tk()
-    root.withdraw()  # Ocultar la ventana principal
-
-    # Rutas de los archivos (ajusta según tu entorno)
-    directorio = os.path.dirname(os.path.abspath(sys.argv[0]))
-    archivo_origen = os.path.join(directorio, "Reporte Operadores s2s - CSV MERA.xlsm")
-    archivo_destino = os.path.join(directorio, "Reporte Operadores s2s - Mera.xlsx")
-
-    operadores_mera_s2s(archivo_origen, archivo_destino)
+def ajustar_formulas_adicionales(hoja, filas_tabla):
+    """Ajusta las fórmulas adyacentes para que coincidan con las filas de la tabla"""
+    for col in range(6, 10):  # F a I
+        celda_original = hoja.cell(row=8, column=col)
+        if celda_original.value and isinstance(celda_original.value, str) and celda_original.value.startswith('='):
+            formula_original = celda_original.value
+            for fila in range(9, 8 + filas_tabla):
+                nueva_formula = ajustar_formula(formula_original, 8, fila)
+                hoja.cell(row=fila, column=col).value = nueva_formula
 
 if __name__ == "__main__":
-    main()
+    # Obtener el directorio del script
+    directorio = os.path.dirname(os.path.abspath(sys.argv[0]))
+    print(f"directorio: {directorio}")
+    
+    # Construir rutas completas
+    ruta_excel = os.path.join(directorio, "Reporte Operadores s2s - CSV MERA.xlsm")
+    print(f"directorio excel: {ruta_excel}")
+    
+    ruta_texto = os.path.join(directorio, r"scripts\AM_Rep_Agente_Skill_Intervalo (tm).txt")
+    print(f"directorio Texto: {ruta_texto}")
+    
+    try:
+        procesar_excel(ruta_excel, ruta_texto)
+    except Exception as e:
+        print(f"Error durante la ejecución: {str(e)}")
+        input("Presiona Enter para salir...")
